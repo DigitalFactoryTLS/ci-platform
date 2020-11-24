@@ -1,0 +1,76 @@
+version: "3.2"
+
+services:
+   jenkins:
+      image: jenkins/jenkins:lts
+      container_name: jenkins
+      restart: always
+      networks:
+         - ci
+      ports:
+         - "8080:8080"
+         - '50000:50000'
+      volumes:
+      - '/var/run/docker.sock:/var/run/docker.sock'
+      - '/data/jenkins/jenkins_home:/var/jenkins_home'
+      environment:
+      - "JENKINS_OPTS=--prefix=/jenkins"
+
+   gitlab:
+      image: gitlab/gitlab-ce:latest
+      container_name: gitlab
+      restart: always
+      networks:
+         - ci
+      environment:
+         - GITLAB_SECRETS_DB_KEY_BASE=very-long-and-random-alphanumeric-string
+         - GITLAB_HOST=localhost
+         - GITLAB_PORT=10080
+         - GITLAB_SSH_PORT=10022
+      ports:
+         - "10080:80"
+         - "10022:22"
+      volumes:
+         - '/data/gitlab/config:/etc/gitlab'
+         - '/data/gitlab/logs:/var/log/gitlab'
+         - '/data/gitlab/data:/var/opt/gitlab'
+
+   sonarqube:
+      image: sonarqube:8.5.1-community
+      container_name: sonarqube
+      restart: always
+      networks:
+         - ci
+         - sonar
+      environment:
+         - SONARQUBE_JDBC_USERNAME=sonar
+         - SONARQUBE_JDBC_PASSWORD=insert-your-very-strong-password-here
+         - SONARQUBE_JDBC_URL=jdbc:postgresql://postgres:5432/sonarqube
+      ports:
+         - "9000:9000"
+         - "9092:9092"
+      volumes:
+         - '/data/sonar/sonarqube_conf:/opt/sonarqube/conf'
+         - '/data/sonar/sonarqube_data:/opt/sonarqube/data'
+         - '/data/sonar/sonarqube_extensions:/opt/sonarqube/extensions'
+         - '/data/sonar/sonarqube_bundled-plugins:/opt/sonarqube/lib/bundled-plugins'
+
+   postgres:
+      image: postgres:13.1
+      container_name: postgres
+      restart: always
+      networks:
+         - sonar
+      environment:
+         - POSTGRES_USER=sonar
+         - POSTGRES_PASSWORD=insert-your-very-strong-password-here
+         - POSTGRES_DB=sonarqube
+      volumes:
+         - '/data/postgresql/sonarqube_db:/var/lib/postgresql'
+         - '/data/postgresql/postgresql_data:/var/lib/postgresql/data'
+
+networks:
+   ci:
+      driver: bridge
+   sonar:
+      driver: bridge
